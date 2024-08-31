@@ -1,0 +1,42 @@
+version: "3.9"
+services:
+  mysql:
+    image: "mysql"
+    environment:
+      MYSQL_ROOT_PASSWORD: "verysecretpass"
+    volumes:
+      - "./init.sql:/docker-entrypoint-initdb.d/init.sql"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h localhost",
+          "-u root",
+          "-p verysecretpass",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  payment:
+    depends_on:
+      mysql:
+        condition: service_healthy
+    build: ../../go-commercial-payment/
+    environment:
+      APPLICATION_PORT: 3001
+      ENV: "development"
+      DATA_SOURCE_URL: "root:verysecretpasst@tcp(mysql:3306)/payments"
+  order:
+    depends_on:
+      mysql:
+        condition: service_healthy
+    build: ../../go-commercial-order/
+    ports:
+      - "3001:3001"
+    environment:
+      APPLICATION_PORT: 3000
+      ENV: "development"
+      DATA_SOURCE_URL: "root:verysecretpass@tcp(mysql:3306)/orders"
+      PAYMENT_SERVICE_URL: "payment:3001"
